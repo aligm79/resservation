@@ -27,10 +27,10 @@ type User struct {
 }
 
 type Reserved struct {
-	ID			uuid.UUID	`gorm:"type:uuid;primaryKey"`
-	UserId		uuid.UUID	`gorm:"type:uuid;not null"`
-	TicketId 	uuid.UUID	`gorm:"type:uuid;not null"`
-	CreatedDate uuid.UUID	`gorm:"autoCreateTime"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
+	UserId      uuid.UUID `gorm:"type:uuid;not null"`
+	TicketId    uuid.UUID `gorm:"type:uuid;not null"`
+	CreatedDate time.Time `gorm:"autoCreateTime"`
 }
 
 func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
@@ -67,6 +67,13 @@ func GetTicket(id uuid.UUID) (*Ticket, error) {
 	}
 
 	return &ticket, nil
+}
+
+func ReserveTicket(r *Reserved) bool {
+	if err := db.Create(&r).Error; err != nil {
+		return false
+	}
+	return true
 }
 
 func GetUserForLogin(usernmame , password string) (*User, error) {

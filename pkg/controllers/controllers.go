@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
+	"time"
 	"github.com/aligm79/reservation/pkg/models"
+	"github.com/aligm79/reservation/pkg/tasks"
 	"github.com/aligm79/reservation/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/hibiken/asynq"
 )
 
 
@@ -19,24 +21,18 @@ func TicketsList(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
-type ContextKey string
-const UserContextKey ContextKey = "user"
 
-func GetTicket(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value(UserContextKey).(*models.User)
-	if !ok {
-		http.Error(w, "User not found in context", http.StatusUnauthorized)
+
+func GetOrReserveTicket(w http.ResponseWriter, r *http.Request) {
+	user, _ := r.Context().Value(utils.UserContextKey).(*models.User)
+	params := mux.Vars(r)
+	ticketId, err := uuid.Parse(params["id"])
+	if err != nil {
+		http.Error(w, "Bad Id", http.StatusBadRequest)
 		return
 	}
-	fmt.Print(user, "this is the user")
 	switch r.Method{
-	case http.MethodGet:
-		params := mux.Vars(r)
-		ticketId, err := uuid.Parse(params["id"])
-		if err != nil {
-			http.Error(w, "Bad Id", http.StatusBadRequest)
-			return
-		}
+	case http.MethodGet:	
 		ticket, err := models.GetTicket(ticketId)
 		if err != nil {
 			http.Error(w, "Not found", http.StatusBadRequest)
@@ -47,6 +43,17 @@ func GetTicket(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		w.Write(result)
 	case http.MethodPost:
+		newReservation := models.Reserved{
+			ID: 			uuid.New(),
+			UserId: 		user.ID,
+			TicketId: 		ticketId,
+			CreatedDate: 	time.Now(),
+		}
+		if !models.ReserveTicket(&newReservation) {
+			http.Error(w, "an error occured", http.StatusBadRequest)
+		}
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(newReservation)
 	}
 }
 
@@ -75,6 +82,20 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token could not be generated", http.StatusForbidden)
 		return
 	}
+
+	redisConn := asynq.RedisClientOpt{Addr: "localhost:6379"}
+    client := asynq.NewClient(redisConn)
+    defer client.Close()
+
+	task, err := tasks.Adder(1379, 9731)
+    if err != nil {
+        fmt.Printf("Could not create logging task: %v", err)
+    } else {
+        _, err := client.Enqueue(task)
+        if err != nil {
+            fmt.Printf("Could not enqueue logging task: %v", err)
+        }
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(fmt.Sprintf(`{"token": "%s"}`, token)))

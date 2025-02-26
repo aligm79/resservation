@@ -43,7 +43,6 @@ func GenerateJWT(id uuid.UUID) (string, error) {
     }
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed_token, err := token.SignedString(jwtKey)
-
     return signed_token, err
 }
 
