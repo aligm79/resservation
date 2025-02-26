@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
 	"github.com/aligm79/reservation/pkg/models"
+	"github.com/aligm79/reservation/pkg/services"
 	"github.com/aligm79/reservation/pkg/tasks"
 	"github.com/aligm79/reservation/pkg/utils"
 	"github.com/google/uuid"
@@ -15,7 +17,7 @@ import (
 
 
 func TicketsList(w http.ResponseWriter, r *http.Request) {
-	tickets := models.GetTickets()
+	tickets := services.GetTickets()
 	res, _ := json.Marshal(tickets)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -33,7 +35,7 @@ func GetOrReserveTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method{
 	case http.MethodGet:	
-		ticket, err := models.GetTicket(ticketId)
+		ticket, err := services.GetTicket(ticketId)
 		if err != nil {
 			http.Error(w, "Not found", http.StatusBadRequest)
 			return
@@ -49,7 +51,7 @@ func GetOrReserveTicket(w http.ResponseWriter, r *http.Request) {
 			TicketId: 		ticketId,
 			CreatedDate: 	time.Now(),
 		}
-		if !models.ReserveTicket(&newReservation) {
+		if !services.ReserveTicket(&newReservation) {
 			http.Error(w, "an error occured", http.StatusBadRequest)
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -71,7 +73,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user , err := models.GetUserForLogin(loginReq.Username, loginReq.Password)
+	user , err := services.GetUserForLogin(loginReq.Username, loginReq.Password)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusForbidden)
 		return
