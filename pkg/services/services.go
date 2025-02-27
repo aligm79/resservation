@@ -1,11 +1,14 @@
 package services
 
 import (
+	"errors"
+
 	"github.com/aligm79/reservation/pkg/config"
+	"github.com/aligm79/reservation/pkg/models"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"github.com/aligm79/reservation/pkg/models"
+	"gorm.io/gorm/clause"
 )
 
 var db *gorm.DB
@@ -22,21 +25,54 @@ func GetTickets() []models.Ticket {
 	return tickets
 }
 
+type myTickets struct {
+	models.Ticket
+	Status int	`json:"Status"`
+}
+
+func MyTickets(userId uuid.UUID) []myTickets {
+	var myTickets []myTickets
+	db.Table("reserveds").
+	Select("tickets.*, reserveds.status as Status").
+	Joins("JOIN tickets ON reserveds.ticket_id = tickets.id").
+	Where("reserveds.user_id = ?", userId).
+	Find(&myTickets)
+	return myTickets
+}
+
 func GetTicket(id uuid.UUID) (*models.Ticket, error) {
 	var ticket models.Ticket
 	result := db.First(&ticket, "id = ?", id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-
 	return &ticket, nil
 }
 
 func ReserveTicket(r *models.Reserved) bool {
-	if err := db.Create(&r).Error; err != nil {
-		return false
-	}
-	return true
+    return db.Transaction(func(tx *gorm.DB) error {
+        var ticket models.Ticket
+        if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+            Where("id = ?", r.TicketId).
+            First(&ticket).Error; err != nil {
+            return err 
+        }
+
+        if ticket.Remaining <= 0 {
+            return errors.New("no remaining tickets")
+        }
+
+        if err := tx.Create(&r).Error; err != nil {
+            return err 
+        }
+
+        ticket.Remaining -= 1
+        if err := tx.Save(&ticket).Error; err != nil {
+            return err 
+        }
+
+        return nil 
+    }) == nil
 }
 
 func GetUserForLogin(usernmame , password string) (*models.User, error) {

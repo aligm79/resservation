@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
 	"github.com/aligm79/reservation/pkg/models"
 	"github.com/aligm79/reservation/pkg/services"
-	"github.com/aligm79/reservation/pkg/tasks"
 	"github.com/aligm79/reservation/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/hibiken/asynq"
 )
 
 
@@ -24,6 +21,14 @@ func TicketsList(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func MyTicketsList(w http.ResponseWriter, r *http.Request) {
+	user, _ := r.Context().Value(utils.UserContextKey).(*models.User)
+	tickets := services.MyTickets(user.ID)
+	result, _ := json.Marshal(tickets)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(result)
+}
 
 func GetOrReserveTicket(w http.ResponseWriter, r *http.Request) {
 	user, _ := r.Context().Value(utils.UserContextKey).(*models.User)
@@ -54,8 +59,10 @@ func GetOrReserveTicket(w http.ResponseWriter, r *http.Request) {
 		if !services.ReserveTicket(&newReservation) {
 			http.Error(w, "an error occured", http.StatusBadRequest)
 		}
+		result, _ := json.Marshal(newReservation)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(newReservation)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(result)
 	}
 }
 
@@ -63,7 +70,6 @@ type LoginRequest struct {
 	Username string `json:"user_name"`
 	Password string `json:"password"`
 }
-
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var loginReq LoginRequest
@@ -84,20 +90,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "token could not be generated", http.StatusForbidden)
 		return
 	}
-
-	redisConn := asynq.RedisClientOpt{Addr: "localhost:6379"}
-    client := asynq.NewClient(redisConn)
-    defer client.Close()
-
-	task, err := tasks.Adder(1379, 9731)
-    if err != nil {
-        fmt.Printf("Could not create logging task: %v", err)
-    } else {
-        _, err := client.Enqueue(task)
-        if err != nil {
-            fmt.Printf("Could not enqueue logging task: %v", err)
-        }
-    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(fmt.Sprintf(`{"token": "%s"}`, token)))

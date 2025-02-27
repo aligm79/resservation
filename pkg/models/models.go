@@ -30,6 +30,10 @@ type Reserved struct {
 	UserId      uuid.UUID `gorm:"type:uuid;not null"`
 	TicketId    uuid.UUID `gorm:"type:uuid;not null"`
 	CreatedDate time.Time `gorm:"autoCreateTime"`
+	Status 		int		  `gorm:"default=0"`
+
+	Ticket      Ticket     `gorm:"foreignKey:TicketId"`
+	User		User		`gorm:"foreignKey:UserId"`
 }
 
 func (t *Ticket) BeforeCreate(tx *gorm.DB) (err error) {
