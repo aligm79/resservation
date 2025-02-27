@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
+
 	"github.com/aligm79/reservation/pkg/models"
 	"github.com/aligm79/reservation/pkg/services"
 	"github.com/aligm79/reservation/pkg/utils"
@@ -23,7 +25,17 @@ func TicketsList(w http.ResponseWriter, r *http.Request) {
 
 func MyTicketsList(w http.ResponseWriter, r *http.Request) {
 	user, _ := r.Context().Value(utils.UserContextKey).(*models.User)
-	tickets := services.MyTickets(user.ID)
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		page = 1 
+	}
+
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10 
+	}
+
+	tickets, _ := services.MyTickets(user.ID, page, pageSize)
 	result, _ := json.Marshal(tickets)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

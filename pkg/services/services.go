@@ -31,14 +31,21 @@ type myTickets struct {
 	Status 	int			`json:"Status"`
 }
 
-func MyTickets(userId uuid.UUID) []myTickets {
+func MyTickets(userId uuid.UUID, page int, pageSize int) ([]myTickets, error) {
 	var myTickets []myTickets
-	db.Table("reserveds").
-	Select("tickets.*, reserveds.status as Status, reserveds.id as ID").
-	Joins("JOIN tickets ON reserveds.ticket_id = tickets.id").
-	Where("reserveds.user_id = ?", userId).
-	Find(&myTickets)
-	return myTickets
+	offset := (page - 1) * pageSize
+
+	err := db.Table("reserveds").
+		Select("tickets.*, reserveds.status as Status, reserveds.id as ID").
+		Joins("JOIN tickets ON reserveds.ticket_id = tickets.id").
+		Where("reserveds.user_id = ?", userId).
+		Find(&myTickets).
+		Limit(pageSize).Offset(offset). 
+		Find(&myTickets).Error
+	if err != nil {
+		return nil, err
+	}
+	return myTickets, nil
 }
 
 func GetTicket(id uuid.UUID) (*models.Ticket, error) {
