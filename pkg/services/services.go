@@ -26,14 +26,15 @@ func GetTickets() []models.Ticket {
 }
 
 type myTickets struct {
-	models.Ticket
-	Status int	`json:"Status"`
+	ID 		uuid.UUID	`json:"ID"`
+    models.Ticket		`json:"Ticket"`
+	Status 	int			`json:"Status"`
 }
 
 func MyTickets(userId uuid.UUID) []myTickets {
 	var myTickets []myTickets
 	db.Table("reserveds").
-	Select("tickets.*, reserveds.status as Status").
+	Select("tickets.*, reserveds.status as Status, reserveds.id as ID").
 	Joins("JOIN tickets ON reserveds.ticket_id = tickets.id").
 	Where("reserveds.user_id = ?", userId).
 	Find(&myTickets)
